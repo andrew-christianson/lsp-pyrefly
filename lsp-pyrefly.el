@@ -95,10 +95,27 @@
 	 ((and installed) (append (list installed) args))
 	 (t (error "can't start pyrefly")))))
 
+
+;; pending https://github.com/emacs-lsp/lsp-mode/pull/4938
+(defun lsp-pyrefly--hover-fix-markdown-links (args)
+  "Fix markdown links in marked string before rendering.
+Converts [text](file:///path#LX,Y) to [text](file:///path:X:Y).
+This is meant to be used as :filter-args advice on 'lsp-ui-doc--extract-marked-string'.
+ARGS is (marked-string &optional language)."
+  (let ((marked-string (car args)))
+    (when (stringp marked-string)
+      (setcar args (replace-regexp-in-string
+                    "\\(file://[^#)]+\\)#L\\([0-9]+\\),\\([0-9]+\\)"
+                    "\\1#\\2,\\3"
+                    marked-string))))
+  args)
+
+(advice-add 'lsp-ui-doc--extract-marked-string
+			:filter-args #'lsp-pyrefly--hover-fix-markdown-links)
+
 (lsp-register-client
  (make-lsp-client
   :new-connection (lsp-stdio-connection (lsp-pyrefly--new-connection-args))
-
   :major-modes '(python-mode python-ts-mode)
   :server-id 'pyrefly
   :multi-root nil
